@@ -9,7 +9,10 @@ Info used:
 -- https://github.com/k2s/enigma2-php
 """
 from decimal import Decimal
+import logging
 from zvdrtools.vdrtools import ChannelSource, get_polarisation
+
+logger = logging.getLogger(__name__)
 
 DVB_POLARISATION_FLAG_MAP = {'H': 0,
                              'V': 1,
@@ -40,6 +43,7 @@ def get_enigma2_service_reference(channel_data):
     Calculate Enigma2 DVB service reference string from channel data
     (like this: 1:0:1:5:14:1:de82a36:0:0:0)
     """
+    logger.debug('Getting Enigma 2 ServiceRef for %s', channel_data)
     sat_hash = freq_hash = 0
     stream_type = 1
     if channel_data.vpid in ('0', '1'):
@@ -74,4 +78,5 @@ def get_enigma2_service_reference(channel_data):
     namespace = (sat_hash << 16) | freq_hash
     #TODO explore 1:0 prefix and 0:0:0 suffix
     service_ref = '1:0:%x:%x:%x:%x:%x:0:0:0' % (stream_type, channel_data.sid, channel_data.tid, channel_data.nid, namespace)
+    logger.debug('Enigma 2 ServiceRef is: %s', service_ref)
     return service_ref

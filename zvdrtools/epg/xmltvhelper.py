@@ -6,6 +6,7 @@ XMLTV <-> VDR EPG conversion routines
 
 from datetime import timedelta, datetime
 import calendar
+import logging
 import xmltv
 
 try:
@@ -16,6 +17,7 @@ except ImportError:
 
 class XMLTV:
     def __init__(self):
+        self.logger = logging.getLogger(__name__)
         self._tree = ElementTree()
         self._tree._setroot(Element('tv'))
         self._loaded_channels = []
@@ -27,6 +29,7 @@ class XMLTV:
         """
         Process given xmltv file and create xml tree for our channel_list
         """
+        self.logger.debug("Start <%s> parsing>", filename)
         if filename.endswith('gz'):
             import gzip
             open_func = gzip.open
@@ -36,6 +39,7 @@ class XMLTV:
             for event, elem in iterparse(fp):
                 if elem.tag == 'channel':
                     if elem.attrib['id'] in channel_list:
+                        self.logger.debug("Add <%s> channel element", elem.attrib['id'])
                         self._tree.getroot().append(elem)
                         if elem.attrib['id'] not in self._loaded_channels:
                             self._loaded_channels.append(elem.attrib['id'])
@@ -46,6 +50,7 @@ class XMLTV:
                         self._tree.getroot().append(elem)
                     else:
                         elem.clear()
+        self.logger.debug('File parsing complete!')
 
     def parse_date_tz(self, date_str):
         """
@@ -77,6 +82,7 @@ class XMLTV:
         programme = xmltv.elem_to_programme(elem)
         programme['start_timestamp'] = calendar.timegm(self.parse_date_tz(programme['start']).utctimetuple())
         programme['stop_timestamp'] = calendar.timegm(self.parse_date_tz(programme['stop']).utctimetuple())
+        self.logger.debug("Programme: %s", programme)
         return programme
 
     def get_tv_schedule(self, channel_name=None):

@@ -10,11 +10,11 @@ CRLF = '\r\n'
 
 Response = namedtuple('Response', 'code delim text')
 
-class SVDRException(Exception):
+class SVDRPException(Exception):
     pass
 
 
-class SVDR(object):
+class SVDRP(object):
     """Base class for network communication with VDR with the Simple VDR Protocol (SVDRP)"""
     def __init__(self, hostname='localhost', port=6419, timeout=10):
         self.logger = logging.getLogger(__name__)
@@ -89,9 +89,9 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
     vdr_command = " ".join(args)
     logging.debug('Command: %s', vdr_command)
-    svdr = SVDR(hostname=options.hostname, port=options.port)
-    svdr.start_conversation()
-    cmd_result = svdr.send_command(vdr_command)
-    svdr.finish_conversation()
+    svdrp = SVDRP(hostname=options.hostname, port=options.port)
+    svdrp.start_conversation()
+    cmd_result = svdrp.send_command(vdr_command)
+    svdrp.finish_conversation()
     for resp_line in cmd_result:
         print '%s%s%s' % (resp_line.code, resp_line.delim, resp_line.text)

@@ -10,7 +10,7 @@ Info used:
 """
 from decimal import Decimal
 import logging
-from zvdrtools.vdrtools import ChannelSource, get_polarisation
+from zvdrtools.vdrtools import ChannelSource, get_polarisation, get_channel_id, get_vdr_channels_custom_dict
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +80,10 @@ def get_enigma2_service_reference(channel_data):
     service_ref = '1:0:%x:%x:%x:%x:%x:0:0:0' % (stream_type, channel_data.sid, channel_data.tid, channel_data.nid, namespace)
     logger.debug('Enigma 2 ServiceRef is: %s', service_ref)
     return service_ref
+
+
+def get_e2vdr_channels_map(channels_conf):
+    def get_dict_value(channel):
+        channel_id = get_channel_id(channel)
+        return {'name': channel.name, 'channel_id': channel_id}
+    return get_vdr_channels_custom_dict(channels_conf, get_enigma2_service_reference, get_dict_value)

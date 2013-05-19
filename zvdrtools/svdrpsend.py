@@ -1,11 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
+from collections import namedtuple
+import re
 import socket
 import logging
 
 
 CRLF = '\r\n'
 
+Response = namedtuple('Response', 'code delim text')
 
 class SVDRException(Exception):
     pass
@@ -21,6 +24,8 @@ class SVDR(object):
         self.sfile = None
         self.timeout = timeout
         self.response = []
+        response_pat = r'^(\d+)(\s|-)(.+)$'
+        self.response_re = re.compile(response_pat)
 
     def start_conversation(self):
         self.response = []
@@ -45,12 +50,20 @@ class SVDR(object):
         self.receive_response()
         return self.response
 
+    def parse_response(self, response_str):
+        m = self.response_re.search(response_str)
+        if m:
+            return Response(int(m.group(1)), m.group(2), m.group(3))
+        else:
+            raise ValueError('Invalid response: %s' % response_str)
+
     def receive_response(self, flag=0):
         self.logger.debug('Getting response...')
         for rline in self.sfile:
             self.logger.debug('Got line %s.', repr(rline))
-            self.response.append(rline)
-            if rline[3:4] != '-':
+            resp = self.parse_response(rline)
+            self.response.append(resp)
+            if resp.delim != '-':
                 #no more lines expected
                 break
         else:
@@ -80,4 +93,5 @@ if __name__ == '__main__':
     svdr.start_conversation()
     cmd_result = svdr.send_command(vdr_command)
     svdr.finish_conversation()
-    print ''.join(cmd_result)
+    for resp_line in cmd_result:
+        print '%s%s%s' % (resp_line.code, resp_line.delim, resp_line.text)

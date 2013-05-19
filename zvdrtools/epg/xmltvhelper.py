@@ -52,7 +52,8 @@ class XMLTV:
                         elem.clear()
         self.logger.debug('File parsing complete!')
 
-    def parse_date_tz(self, date_str):
+    @classmethod
+    def parse_date_tz(cls, date_str):
         """
         Parse date like this: '20130429073000 +0300'
         (python libs unable to process timezone info in +0300 format)
@@ -80,8 +81,8 @@ class XMLTV:
         Convert programme element to dictionary
         """
         programme = xmltv.elem_to_programme(elem)
-        programme['start_timestamp'] = calendar.timegm(self.parse_date_tz(programme['start']).utctimetuple())
-        programme['stop_timestamp'] = calendar.timegm(self.parse_date_tz(programme['stop']).utctimetuple())
+        programme['start_timestamp'] = calendar.timegm(XMLTV.parse_date_tz(programme['start']).utctimetuple())
+        programme['stop_timestamp'] = calendar.timegm(XMLTV.parse_date_tz(programme['stop']).utctimetuple())
         self.logger.debug("Programme: %s", programme)
         return programme
 

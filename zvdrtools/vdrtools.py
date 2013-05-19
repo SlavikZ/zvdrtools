@@ -66,3 +66,37 @@ def get_polarisation(channel_parameters):
     Extract polarisation character (L R V H) from VDR channel parameters string
     """
     return next(s.upper() for s in channel_parameters if s in 'HhVvRrLl')
+
+
+def get_vdr_channels_custom_dict(channels_conf, dict_key_func, dict_value_func):
+    """
+    Build custom VDR channels dict
+    :param channels_conf: either path to channel.conf or list of channels.conf lines
+    :param dict_key_func: function for dict key calculation. Should accept Channel namedtuple as a parameter.
+    :param dict_value_func: function for dict value calculation. Should accept Channel namedtuple as a parameter.
+    :return: channels dictionary
+    """
+    channels_dict = {}
+    if isinstance(channels_conf, basestring):
+        def read_conf_file():
+            with open(channels_conf) as fv:
+                for (line_no, line) in enumerate(fv, 1):
+                    yield (line_no, line.rstrip('\n'))
+        channels_conf_reader = read_conf_file
+    else:
+        def read_conf_list():
+            for (line_no, line) in enumerate(channels_conf, 1):
+                yield (line_no, line)
+        channels_conf_reader = read_conf_list
+    current_bouquet = ''
+
+    for (line_no, line) in channels_conf_reader():
+        if line.startswith(':'):
+            current_bouquet = line[1:]
+            continue
+        channel = extract_channel_data(line)
+        dict_key = dict_key_func(channel)
+        dict_value = dict_value_func(channel)
+        channels_dict[dict_key] = dict_value
+        logger.debug('%s => %s', dict_key, dict_value)
+    return channels_dict

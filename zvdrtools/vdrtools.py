@@ -4,6 +4,8 @@ VDR related routines
 """
 from collections import namedtuple
 import logging
+import re
+from zvdrtools.svdrpsend import SVDRP
 
 logger = logging.getLogger(__name__)
 Channel = namedtuple('Channel', 'name, provider, freq, parameters, source, symbolrate,'
@@ -100,3 +102,25 @@ def get_vdr_channels_custom_dict(channels_conf, dict_key_func, dict_value_func):
         channels_dict[dict_key] = dict_value
         logger.debug('%s => %s', dict_key, dict_value)
     return channels_dict
+
+def net_get_channel_list(hostname='localhost', port=6419, timeout=10):
+    """
+    Get VDR channel conf list with Simple VDR Protocol (SVDRP)
+    """
+    svdrp = SVDRP(hostname=hostname, port=port, timeout=timeout)
+    svdrp.start_conversation()
+    cmd_result = svdrp.send_command('LSTC')
+    svdrp.finish_conversation()
+    channels = []
+    c_line_re = re.compile(r'(\d+)\s+(.+)')
+    for resp_line in cmd_result:
+        if resp_line.code != 250:
+            #it is not channel info line, just skip it
+            continue
+        #split out channel number
+        m = c_line_re.search(resp_line.text)
+        if m:
+            channels.append(m.group(2).rstrip('\r\n'))
+        else:
+            raise ValueError('Invalid SVDR response line: %s' % resp_line)
+    return channels

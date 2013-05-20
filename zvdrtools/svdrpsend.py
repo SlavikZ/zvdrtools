@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
+import codecs
 from collections import namedtuple
 import re
 import socket
@@ -16,7 +17,7 @@ class SVDRPException(Exception):
 
 class SVDRP(object):
     """Base class for network communication with VDR with the Simple VDR Protocol (SVDRP)"""
-    def __init__(self, hostname='localhost', port=6419, timeout=10):
+    def __init__(self, hostname='localhost', port=6419, timeout=10, debug_dump=None):
         self.logger = logging.getLogger(__name__)
         self.hostname = hostname
         self.port = port
@@ -24,26 +25,39 @@ class SVDRP(object):
         self.sfile = None
         self.timeout = timeout
         self.response = []
+        self.debug_dump = debug_dump
         response_pat = r'^(\d+)(\s|-)(.+)$'
         self.response_re = re.compile(response_pat)
 
     def start_conversation(self):
         self.response = []
         self.logger.debug('Start conversation with %s:%s.', self.hostname, self.port)
-        self.socket = socket.create_connection((self.hostname, self.port), self.timeout)
-        self.sfile = self.socket.makefile('r')
-        self.receive_response()
+        if self.debug_dump is not None:
+            #self.debug_file = open(self.debug_dump, 'w')
+            self.debug_file = codecs.open(self.debug_dump, 'w', encoding='utf-8')
+            self.logger.warning('Debug dry mode - dump all commands to %s dump file', self.debug_dump)
+        else:
+            self.socket = socket.create_connection((self.hostname, self.port), self.timeout)
+            self.sfile = self.socket.makefile('r')
+            self.receive_response()
 
     def finish_conversation(self):
         self.logger.debug('Finish conversation with %s:%s.', self.hostname, self.port)
         self.send_command('quit')
-        self.sfile.close()
-        self.socket.close()
-        self.sfile = self.socket = None
+        if self.debug_dump is not None:
+            self.debug_file.close()
+        else:
+            self.sfile.close()
+            self.socket.close()
+            self.sfile = self.socket = None
 
     def send(self, cmd):
         self.logger.debug('Send %s to host', repr(cmd))
-        self.socket.sendall(cmd + CRLF)
+        cmd +=  CRLF
+        if self.debug_dump is not None:
+            self.debug_file.write(cmd)
+        else:
+            self.socket.sendall(cmd)
 
     def send_command(self, cmd):
         self.send(cmd)
@@ -59,6 +73,10 @@ class SVDRP(object):
 
     def receive_response(self, flag=0):
         self.logger.debug('Getting response...')
+        if self.debug_dump is not None:
+            self.logger.warning('Debug dry mode - return empty response')
+            return []
+
         for rline in self.sfile:
             self.logger.debug('Got line %s.', repr(rline))
             resp = self.parse_response(rline)
@@ -77,19 +95,24 @@ if __name__ == '__main__':
     usage = "usage: %prog [options] command..."
     parser = OptionParser(usage)
     parser.add_option("-d", "--host", action="store", type="string", dest="hostname", default='localhost',
-        help="destination hostname (default: localhost)")
+                      help="destination hostname (default: localhost)")
     parser.add_option("-p", "--port", action="store", type="int", dest="port", default=6419,
-        help="SVDRP port number (default: 6419)")
+                      help="SVDRP port number (default: 6419)")
     parser.add_option("-v", "--verbose", action="store_true", dest="verbose",
-        help="verbose output with debug info")
+                      help="verbose output with debug info")
+    parser.add_option("-t", "--debug-dump", action="store", type="string", dest="debug_dump",
+                      help="Debug dry mode - dump all commands to file, no actual commands send to host")
+
     (options, args) = parser.parse_args()
     if len(args) == 0:
         parser.error("missing command")
     if options.verbose:
         logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig()
     vdr_command = " ".join(args)
     logging.debug('Command: %s', vdr_command)
-    svdrp = SVDRP(hostname=options.hostname, port=options.port)
+    svdrp = SVDRP(hostname=options.hostname, port=options.port, debug_dump=options.debug_dump)
     svdrp.start_conversation()
     cmd_result = svdrp.send_command(vdr_command)
     svdrp.finish_conversation()

@@ -34,20 +34,22 @@ class SVDRP(object):
         if self.debug_dump is not None:
             self.debug_file = open(self.debug_dump, 'w')
             self.logger.warning('Debug dry mode - dump all commands to %s dump file', self.debug_dump)
+            return []
         else:
             self.socket = socket.create_connection((self.hostname, self.port), self.timeout)
             self.sfile = self.socket.makefile('r')
-            self.receive_response()
+            return self.receive_response()
 
     def finish_conversation(self):
         self.logger.debug('Finish conversation with %s:%s.', self.hostname, self.port)
-        self.send_command('quit')
+        cmd_result = self.send_command('quit')
         if self.debug_dump is not None:
             self.debug_file.close()
         else:
             self.sfile.close()
             self.socket.close()
             self.sfile = self.socket = None
+        return cmd_result
 
     def send(self, cmd):
         self.logger.debug('Send %s to host', repr(cmd))
@@ -58,7 +60,6 @@ class SVDRP(object):
         if self.debug_dump is not None:
             self.debug_file.write(cmd)
         else:
-
             self.socket.sendall(cmd)
 
     def send_command(self, cmd):

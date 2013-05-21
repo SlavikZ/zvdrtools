@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding: utf8 -*-
-import codecs
 from collections import namedtuple
 import re
 import socket
@@ -33,8 +32,7 @@ class SVDRP(object):
         self.response = []
         self.logger.debug('Start conversation with %s:%s.', self.hostname, self.port)
         if self.debug_dump is not None:
-            #self.debug_file = open(self.debug_dump, 'w')
-            self.debug_file = codecs.open(self.debug_dump, 'w', encoding='utf-8')
+            self.debug_file = open(self.debug_dump, 'w')
             self.logger.warning('Debug dry mode - dump all commands to %s dump file', self.debug_dump)
         else:
             self.socket = socket.create_connection((self.hostname, self.port), self.timeout)
@@ -53,10 +51,14 @@ class SVDRP(object):
 
     def send(self, cmd):
         self.logger.debug('Send %s to host', repr(cmd))
-        cmd +=  CRLF
+        cmd += CRLF
+        if isinstance(cmd, unicode):
+            #TODO We should read VDR encoding in start_conversation
+            cmd = cmd.encode("utf-8")
         if self.debug_dump is not None:
             self.debug_file.write(cmd)
         else:
+
             self.socket.sendall(cmd)
 
     def send_command(self, cmd):

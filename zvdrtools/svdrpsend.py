@@ -63,8 +63,7 @@ class SVDRP(object):
 
     def send_command(self, cmd):
         self.send(cmd)
-        self.receive_response()
-        return self.response
+        return self.receive_response()
 
     def parse_response(self, response_str):
         m = self.response_re.search(response_str)
@@ -78,7 +77,7 @@ class SVDRP(object):
         if self.debug_dump is not None:
             self.logger.warning('Debug dry mode - return empty response')
             return []
-
+        next_index = len(self.response)
         for rline in self.sfile:
             self.logger.debug('Got line %s.', repr(rline))
             resp = self.parse_response(rline)
@@ -89,6 +88,9 @@ class SVDRP(object):
         else:
             self.logger.debug('Empty response.')
         self.logger.debug('Got response.')
+        return self.response[next_index:]
+
+    def get_full_response(self):
         return self.response
 
 
@@ -116,7 +118,8 @@ if __name__ == '__main__':
     logging.debug('Command: %s', vdr_command)
     svdrp = SVDRP(hostname=options.hostname, port=options.port, debug_dump=options.debug_dump)
     svdrp.start_conversation()
-    cmd_result = svdrp.send_command(vdr_command)
+    svdrp.send_command(vdr_command)
     svdrp.finish_conversation()
+    cmd_result = svdrp.get_full_response()
     for resp_line in cmd_result:
         print '%s%s%s' % (resp_line.code, resp_line.delim, resp_line.text)

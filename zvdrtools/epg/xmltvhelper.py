@@ -3,7 +3,6 @@
 """
 XMLTV <-> VDR EPG conversion routines
 """
-
 from datetime import timedelta, datetime
 import calendar
 import logging
@@ -14,6 +13,53 @@ try:
 except ImportError:
     from xml.etree.ElementTree import ElementTree, Element, iterparse
 
+MAP_SECTION = 'Mappings'
+logger = logging.getLogger(__name__)
+
+
+def store_xmltv2vdr_mappings(xmltv_channels_map_config, xmltv_channels_map):
+    """
+    Store XMLTV to VDR channels mapping to config file
+    """
+    import ConfigParser
+    if len(xmltv_channels_map) > 0:
+        config = ConfigParser.ConfigParser()
+        config.read(xmltv_channels_map_config)
+
+        try:
+            config.remove_section(MAP_SECTION)
+        except ConfigParser.NoSectionError:
+            pass
+        config.add_section(MAP_SECTION)
+        for map_id, map_item in sorted(xmltv_channels_map.iteritems()):
+            #store additional information as a comment
+            item_comment = '; '.join(['%s=%s' % (item['channel_id'], item['name']) for item in map_item])
+            config.set(MAP_SECTION, ';' + item_comment, '')
+            #store the item itself
+            item_value = ','.join([item['channel_id'] for item in map_item])
+            config.set(MAP_SECTION, map_id, item_value)
+        with open(xmltv_channels_map_config, 'wb') as configfile:
+            config.write(configfile)
+
+
+def read_xmltv2vdr_mappings(xmltv_channels_map_config, channels_dict):
+    """
+    Read XMLTV to VDR channels mapping and check VDR Channels IDs existence in provided channels_dict
+    Return map dictionary in {<XMLTV_ID>: {'id': <VDR Channel ID>, 'name': <VDR Channel Name>}} format
+    """
+    import ConfigParser
+    config = ConfigParser.ConfigParser()
+    config.read(xmltv_channels_map_config)
+
+    channels_map = {}
+    for opt in config.options(MAP_SECTION):
+        map_channels_id = [{'id': c, 'name': channels_dict[c]}
+                           for c in config.get(MAP_SECTION, opt).split(',') if c in channels_dict]
+        if map_channels_id:
+            channels_map[opt] = map_channels_id
+        else:
+            logger.warning('For mapping rule <%s> there are no available any VDR channels. Refresh your mapping file.', opt)
+    return channels_map
 
 class XMLTV:
     def __init__(self):

@@ -199,10 +199,10 @@ class XMLTV:
                         if current_channel_id is not None:
                             #finish previous channel entries
                             svdrp.send('c')
-                            #start new channel
+                        #start new channel
                         svdrp.send('C %s %s' % (vdr_channel_id, vdr_channel_name))
                         current_channel_id = vdr_channel_id
-                        #start entry
+                    #start EPG entry
                     svdrp.send('E %(event_id)s %(start_time)d %(duration)d' % {
                         'event_id': prg['start_timestamp'],
                         'start_time': prg['start_timestamp'],
@@ -214,7 +214,7 @@ class XMLTV:
                         svdrp.send('S %s' % prg['sub-title'][0][0].replace('\\n', '|'))
                     if 'desc' in prg:
                         svdrp.send('D %s' % prg['desc'][0][0].replace('\\n', '|'))
-                        #end entry
+                    #end entry
                     svdrp.send('e')
             else:
                 if current_channel_id is not None:

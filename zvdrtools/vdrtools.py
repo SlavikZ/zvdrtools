@@ -70,28 +70,16 @@ def get_polarisation(channel_parameters):
     return next(s.upper() for s in channel_parameters if s in 'HhVvRrLl')
 
 
-def get_vdr_channels_custom_dict(channels_conf, dict_key_func, dict_value_func):
+def get_vdr_channels_custom_dict(channels_conf_reader, dict_key_func, dict_value_func):
     """
     Build custom VDR channels dict
-    :param channels_conf: either path to channel.conf or list of channels.conf lines
+    :param channels_conf_reader: channel.conf lines list iterator
     :param dict_key_func: function for dict key calculation. Should accept Channel namedtuple as a parameter.
     :param dict_value_func: function for dict value calculation. Should accept Channel namedtuple as a parameter.
     :return: channels dictionary
     """
     channels_dict = {}
-    if isinstance(channels_conf, basestring):
-        def read_conf_file():
-            with open(channels_conf) as fv:
-                for (line_no, line) in enumerate(fv, 1):
-                    yield (line_no, line.rstrip('\n'))
-        channels_conf_reader = read_conf_file
-    else:
-        def read_conf_list():
-            for (line_no, line) in enumerate(channels_conf, 1):
-                yield (line_no, line)
-        channels_conf_reader = read_conf_list
     current_bouquet = ''
-
     for (line_no, line) in channels_conf_reader():
         if line.startswith(':'):
             current_bouquet = line[1:]
@@ -124,3 +112,28 @@ def net_get_channel_list(hostname='localhost', port=6419, timeout=10):
         else:
             raise ValueError('Invalid SVDR response line: %s' % resp_line)
     return channels
+
+
+def get_vdr_channels_conf_reader(vdr_channels_file=None, hostname=None, port=None):
+    """
+    Generate channels.conf strings list source.
+    Either get it from vdr_channels_file if provided, or get it with SVDRP otherwise.
+    :param vdr_channels_file: path to channel.conf
+    :param hostname: SVDRP hostnam
+    :param port: SVDRP port
+    """
+    if vdr_channels_file is not None:
+        logger.info('Load channels conf from file <%s>', vdr_channels_file)
+        def read_conf_file():
+            with open(vdr_channels_file) as fv:
+                for (line_no, line) in enumerate(fv, 1):
+                    yield (line_no, line.rstrip('\n'))
+        channels_conf_reader = read_conf_file
+    else:
+        logger.info('Load channels conf from SVDRP host <%s:%s>', hostname, port)
+        channels_conf = net_get_channel_list(hostname, port)
+        def read_conf_list():
+            for (line_no, line) in enumerate(channels_conf, 1):
+                yield (line_no, line)
+        channels_conf_reader = read_conf_list
+    return channels_conf_reader

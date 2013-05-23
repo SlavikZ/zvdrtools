@@ -69,6 +69,7 @@ def read_xmltv2vdr_mappings(xmltv_channels_map_config, channels_dict):
             logger.warning('For mapping rule <%s> there are no available any VDR channels. Refresh your mapping file.', opt)
     return channels_map
 
+
 class XMLTV:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -150,3 +151,77 @@ class XMLTV:
             filter_str = 'programme'
         for elem in self._tree.findall(filter_str):
             yield self.parse_programme(elem)
+
+    def send_clear_channel_epg(self, channels_id, svdrp):
+        """
+        Send to VDR clear channel EPG command for provided channels entries
+        """
+        for channel_entry in channels_id:
+            self.logger.info('Clear EPG for channel %s (%s)', channel_entry['name'], channel_entry['id'])
+            svdrp_response = svdrp.send_command('CLRE %s' % channel_entry['id'])
+            self.logger.debug('SVDRP Response: %s', svdrp_response)
+
+    def check_upload_result(self, upload_responses_list):
+        """
+        Process received VDR response on EPG upload command
+        """
+        if len(upload_responses_list) != 1:
+            self.logger.error('Invalid SVDRP Response: %s', upload_responses_list)
+            return
+        upload_response = upload_responses_list[0]
+        if upload_response.code == 250:
+            self.logger.info('EPG uploaded successfully')
+        else:
+            self.logger.error('EPG uploaded unsuccessfully, response: %s', upload_response)
+
+    def process_tv_schedule(self, channels_map, svdrp):
+        """
+        Process XMLTV tree and upload EPG to VDR
+        """
+        timestamp_utc_now = get_timestamp_utc_now()
+        svdrp.start_conversation()
+        for channel_name in self.get_loaded_channels():
+            epg_channels = channels_map[channel_name]
+            self.logger.info("Load <%s> to %s", channel_name, epg_channels)
+            current_channel_id = None
+            self.send_clear_channel_epg(epg_channels, svdrp)
+            self.logger.info('Start EPG upload')
+            svdrp_response = svdrp.send_command('PUTE')
+            self.logger.debug('SVDRP Response: %s', svdrp_response)
+            for prg in self.get_tv_schedule(channel_name):
+                if prg['stop_timestamp'] < timestamp_utc_now:
+                    #skip old entry
+                    continue
+                for channel_entry in epg_channels:
+                    vdr_channel_id = channel_entry['id']
+                    vdr_channel_name = channel_entry['name']
+                    if current_channel_id is None or current_channel_id != vdr_channel_id:
+                        if current_channel_id is not None:
+                            #finish previous channel entries
+                            svdrp.send('c')
+                            #start new channel
+                        svdrp.send('C %s %s' % (vdr_channel_id, vdr_channel_name))
+                        current_channel_id = vdr_channel_id
+                        #start entry
+                    svdrp.send('E %(event_id)s %(start_time)d %(duration)d' % {
+                        'event_id': prg['start_timestamp'],
+                        'start_time': prg['start_timestamp'],
+                        'duration': prg['stop_timestamp']-prg['start_timestamp']
+                    })
+                    if 'title' in prg:
+                        svdrp.send('T %s' % prg['title'][0][0].replace('\\n', '|'))
+                    if 'sub-title' in prg:
+                        svdrp.send('S %s' % prg['sub-title'][0][0].replace('\\n', '|'))
+                    if 'desc' in prg:
+                        svdrp.send('D %s' % prg['desc'][0][0].replace('\\n', '|'))
+                        #end entry
+                    svdrp.send('e')
+            else:
+                if current_channel_id is not None:
+                    svdrp.send('c')
+                svdrp_response = svdrp.send_command('.')
+                self.check_upload_result(svdrp_response)
+                self.logger.debug('SVDRP Response: %s', svdrp_response)
+        self.logger.debug('Finish conversation with VDR')
+        svdrp_response = svdrp.finish_conversation()
+        self.logger.debug('SVDRP Response: %s', svdrp_response)

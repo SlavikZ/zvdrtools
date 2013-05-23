@@ -17,6 +17,14 @@ MAP_SECTION = 'Mappings'
 logger = logging.getLogger(__name__)
 
 
+def get_timestamp_utc_now():
+    """
+    Return current time in UNIX timestamp format
+    (number of seconds since 00:00:00 UTC on January 1, 1970)
+    """
+    return calendar.timegm(datetime.utcnow().utctimetuple())
+
+
 def store_xmltv2vdr_mappings(xmltv_channels_map_config, xmltv_channels_map):
     """
     Store XMLTV to VDR channels mapping to config file

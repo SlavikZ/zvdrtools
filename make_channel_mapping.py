@@ -3,7 +3,7 @@
 import logging
 from zvdrtools.enigma2tools import get_e2vdr_channels_map
 from zvdrtools.epg.xmltvhelper import store_xmltv2vdr_mappings
-from zvdrtools.vdrtools import get_vdr_channels_conf_reader
+from zvdrtools.vdrtools import get_vdr_channels_conf_reader, get_vdr_channels_custom_dict, get_channel_id
 
 try:
     from xml.etree.cElementTree import ElementTree, Element, iterparse
@@ -54,15 +54,26 @@ def main():
     parser.add_option("-o", "--out", action="store", type="string", dest="xmltv_channels_map_config",
                       default='./channels-map.ini',
                       help="Path to channels-map.ini file (default: ./channels-map.ini")
+    parser.add_option("-i", "--id-list", action="store_true", dest="id_list_only",
+                      help="show VDR channels ID and exit")
     (options, args) = parser.parse_args()
     if options.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
     channels_conf = get_vdr_channels_conf_reader(options.vdr_channels_file, options.hostname, options.port)
-    channels_dict = get_e2vdr_channels_map(channels_conf)
-    xmltv_channels_map = process_linuxsat_mappings(options.xmltv_channels_file, channels_dict)
-    store_xmltv2vdr_mappings(options.xmltv_channels_map_config, xmltv_channels_map)
+    if options.id_list_only:
+        logger.debug("Show VDR Channels ID only")
+        channels_dict = get_vdr_channels_custom_dict(channels_conf, get_channel_id,
+                                                     lambda channel: {'name': channel.name,
+                                                                      'id': get_channel_id(channel)}
+        )
+        for channel in channels_dict.values():
+            print "%s=%s" % (channel['name'], channel['id'])
+    else:
+        channels_dict = get_e2vdr_channels_map(channels_conf)
+        xmltv_channels_map = process_linuxsat_mappings(options.xmltv_channels_file, channels_dict)
+        store_xmltv2vdr_mappings(options.xmltv_channels_map_config, xmltv_channels_map)
 
 
 if __name__ == '__main__':

@@ -46,6 +46,30 @@ def extract_channel_data(channel_line):
     return  channel
 
 
+def get_transponder_value(channel_data):
+    """
+    Returns the transponder frequency in MHz, plus the polarization in case of sat
+    Ported from VDR 2.0.1 cChannel::Transponder function
+    """
+    transponder_value = channel_data.freq
+    while transponder_value > 20000:
+        transponder_value /= 1000
+    if channel_data.source.startswith('S'):
+        #for SAT source we should process polarisation
+        polarisation = get_polarisation(channel_data.parameters)
+        if polarisation == 'H':
+            transponder_value += 100000
+        elif polarisation == 'V':
+            transponder_value += 200000
+        elif polarisation == 'L':
+            transponder_value += 300000
+        elif polarisation == 'R':
+            transponder_value += 400000
+        else:
+            logger.error("invalid value for Polarization for channel %s", channel_data)
+    return transponder_value
+
+
 def get_channel_id(channel_data):
     """
     From given Channel namedtuple return VDR Channel ID string
@@ -53,9 +77,13 @@ def get_channel_id(channel_data):
     """
     #Source (S19.2E), NID (1), TID (1089), SID (12003) and RID
     logger.debug('Getting Channel ID for %s', channel_data)
+    if channel_data.nid or channel_data.tid:
+        channel_tid = channel_data.tid
+    else:
+        channel_tid = get_transponder_value(channel_data)
     channel_id = '%(source)s-%(nid)d-%(tid)d-%(sid)d' % {'source': channel_data.source,
                                                          'nid': channel_data.nid,
-                                                         'tid': channel_data.tid,
+                                                         'tid': channel_tid,
                                                          'sid': channel_data.sid}
     if channel_data.rid != 0:
         channel_id = "%s-%d" % channel_data.rid

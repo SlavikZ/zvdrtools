@@ -64,7 +64,8 @@ def main():
     channels_conf = get_vdr_channels_conf_reader(options.vdr_channels_file, options.hostname, options.port)
     if options.id_list_only:
         logger.debug("Show VDR Channels ID only")
-        channels_dict = get_vdr_channels_custom_dict(channels_conf, get_channel_id,
+        channels_dict = get_vdr_channels_custom_dict(channels_conf,
+                                                     lambda channel: '%s-%s' % (get_channel_id(channel), channel.freq),
                                                      lambda channel: {'name': channel.name,
                                                                       'id': get_channel_id(channel)}
         )
